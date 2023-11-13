@@ -42,7 +42,7 @@ def main():
         for token in reader:
             pageTokens.append(token[0])
 
-    i = 0
+    i = 1
     for nextPageToken in pageTokens:
         request = youtube.playlistItems().list(
             part="snippet,contentDetails",
