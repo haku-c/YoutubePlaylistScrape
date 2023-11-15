@@ -35,10 +35,10 @@ def main():
         part="snippet,contentDetails",
         playlistId=PLAYLIST_ID,
         maxResults=50,
-        fields="""items(snippet/publishedAt,snippet/channelId,snippet/title, snippet/videoOwnerChannelTitle, snippet/videoOwnerChannelId, contentDetails,contentDetails.note)""",
+        fields="items(snippet/publishedAt,snippet/channelId,snippet/title, snippet/videoOwnerChannelTitle, snippet/videoOwnerChannelId, contentDetails,contentDetails.note)",
     )
     response = request.execute()
-    with open("data/response0" + ".json", "w") as file:
+    with open("data/songJsons/response0" + ".json", "w") as file:
         json.dump(response, file)
 
 

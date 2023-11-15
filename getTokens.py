@@ -42,7 +42,7 @@ def main():
     nextPageToken = response.get("nextPageToken")
     pageTokens.append(nextPageToken)
 
-    for i in range(1, 16):
+    while nextPageToken is not None:
         request = youtube.playlistItems().list(
             part="snippet,contentDetails",
             playlistId=PLAYLIST_ID,
@@ -51,7 +51,8 @@ def main():
         )
         response = request.execute()
         nextPageToken = response.get("nextPageToken")
-        pageTokens.append(nextPageToken)
+        if nextPageToken is not None:
+            pageTokens.append(nextPageToken)
 
     with open("tokens.csv", "w") as f:
         for token in pageTokens:

@@ -52,7 +52,7 @@ def main():
             fields="items(snippet/publishedAt,snippet/channelId,snippet/title, snippet/videoOwnerChannelTitle, snippet/videoOwnerChannelId, contentDetails,contentDetails.note)",
         )
         response = request.execute()
-        with open("data/response" + str(i) + ".json", "w") as file:
+        with open("data/songJsons/response" + str(i) + ".json", "w") as file:
             json.dump(response, file)
         i = i + 1
 
