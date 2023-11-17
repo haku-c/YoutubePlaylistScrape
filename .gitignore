@@ -1,9 +1,7 @@
 config.py
 client_secret_*
-ids.txt
-requests.txt
-tokens.csv
-channels.txt
+*.txt
+*.csv
 
 env/
 data/

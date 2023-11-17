@@ -1,0 +1,15 @@
+{
+  "name": "spotifyquery",
+  "version": "1.0.0",
+  "description": "",
+  "main": "query.js",
+  "scripts": {},
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "dotenv": "^16.3.1",
+    "fs": "^0.0.1-security",
+    "qs": "^6.11.2"
+  }
+}
