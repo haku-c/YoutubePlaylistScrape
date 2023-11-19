@@ -1,13 +1,16 @@
+require('dotenv').config();
 const axios = require('axios');
 const qs = require('qs');
-require('dotenv').config();
+const fs = require('fs');
+const Fuse = require('fuse.js')
+const csvParser = require("csv-parser");
 
 const clientId = process.env.SPOTIFY_CLIENT_ID;
 const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
 
 const authToken = Buffer.from(`${clientId}:${clientSecret}`, 'utf-8').toString('base64');
 
-const getToken = async () => {
+async function getToken() {
   try {
     //make post request to SPOTIFY API for access token, sending relavent info
     const tokenUrl = 'https://accounts.spotify.com/api/token';
@@ -26,7 +29,7 @@ const getToken = async () => {
   }
 }
 
-const getSongIds = async (q) => {
+async function getSongIds(q, qArtist, qTitle) {
   const token = await getToken()
   const response = await axios({
     method: 'get',
@@ -36,23 +39,47 @@ const getSongIds = async (q) => {
     }
   }).then((result) => {
     spotifyResponse = result.data
-    let songId = spotifyResponse.tracks.items[0].id
-    let songName = spotifyResponse.tracks.items[0].name
-    let album = spotifyResponse.tracks.items[0].album.name
-    let albumId = spotifyResponse.tracks.items[0].album.id
-    let duration = spotifyResponse.tracks.items[0].duration_ms
-    let release = spotifyResponse.tracks.items[0].album.release_date
-    let artists = []
-    let artistId = []
-    artistData = spotifyResponse.tracks.items[0].artists
-    for (let i = 0; i < artistData.length; i++) {
-      artists.push(artistData[i].name)
-      console.log(artistData[i].name)
-
+    res = []
+    for (let i = 0; i < spotifyResponse.tracks.items.length; i++) {
+      let songId = spotifyResponse.tracks.items[i].id
+      let songName = spotifyResponse.tracks.items[i].name
+      let artistData = spotifyResponse.tracks.items[i].artists
+      artists = ""
+      for (let j = 0; j < artistData.length; j++) {
+        artists = artists + " " + (artistData[j].name)
+      }
+      res.push({ title: songName, artist: artists, id: songId })
     }
-    console.log(songName + ", " + album + ", " + artists[0])
-
+    const fuse = new Fuse(res, {
+      keys: [{ name: 'title' }, { name: 'artist' }],
+      includeScore: true,
+      includeMatches: true,
+      threshold: 0.4,
+      shouldSort: true,
+    })
+    searchTerm = qTitle + " " + qArtist
+    const fuseRes = fuse.search(searchTerm)
+    console.log(fuseRes[0])
+    return fuseRes[0]
   })
+  return response
 }
 
-getSongIds('q%3Dtrack%3AInto%20Youartist%3AAriana%20Grande%20&type=track&limit=3')
+incorrect = []
+correctSongIds = []
+
+var result = [];
+fs.createReadStream("./queries.csv")
+  .pipe(csvParser())
+  .on("data", (data) => {
+    result.push(data);
+  })
+  .on("end", async () => {
+    for (let i = 0; i < 2; i++) {
+      data = result[i]
+      const res = await getSongIds(data.url, data.Artist, data.Title)
+      console.log(res)
+    }
+  });
+
+
