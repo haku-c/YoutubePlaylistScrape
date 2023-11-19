@@ -27,6 +27,7 @@ def removeWordsFromTitle(sheet, regex):
     sheet.loc[sheet["Title"].str.match(regex), "Title"] = new
 
 
+spotifyParse = True
 songdf = pd.DataFrame()
 for file in sorted(os.listdir("data/songJsons"), key=len):
     data = pd.read_json("data/songJsons/" + file)
@@ -80,7 +81,7 @@ songsToParse["Title"] = split["Title"]
 # artist specific fixes
 ellisCovers = songsToParse[songsToParse["Title"] == "Cover"]
 songsToParse.loc[songsToParse["Title"] == "Cover", "Artist"] = "Lucy Ellis"
-songsToParse.loc[songsToParse["Title"] == "Cover", "Title"] = ellisCovers["Title"]
+songsToParse.loc[songsToParse["Title"] == "Cover", "Title"] = ellisCovers["Artist"]
 
 pinkzebra = songsToParse[songsToParse["Title"] == "Upbeat Song for Videos"]
 songsToParse.loc[
@@ -147,11 +148,20 @@ remixRegex = r"^.*[\(\[](?P<remixArtist>.*)[Rr]emix.*[\)\]].*$"
 remixes = parsed[parsed["Title"].str.match(remixRegex)]["Title"]
 parsed["RemixArtist"] = remixes.str.extract(remixRegex)
 
-featRegex = r"^.*[\(\[]([Ff]eat\.|[Ff]t.) (?P<featArtist>[^)]+)[\)\]].*$|^.*([fF]t\.|[fF]eat\.) (?P<featuredArtist>[\w ]+).*$"
+if spotifyParse:
+    featRegex = r"^(.*)([([][Ff]eat\.|[([][Ff]t\.) (?P<featArtist>[^)]+)[)\]](.*)$|^(.*)([fF]t\.|[fF]eat\.) (?P<featuredArtist>[\w ]+)(.*)$"
+else:
+    featRegex = r"^.*[\(\[]([Ff]eat\.|[Ff]t.) (?P<featArtist>[^)]+)[\)\]].*$|^.*([fF]t\.|[fF]eat\.) (?P<featuredArtist>[\w ]+).*$"
+
 feats = parsed[parsed["Title"].str.match(featRegex)]["Title"]
 temp = feats.str.extract(featRegex)
-temp = temp["featuredArtist"].fillna(temp["featArtist"])
-parsed["FeaturedArtist"] = temp
+temp["featArtist"] = temp["featuredArtist"].fillna(temp["featArtist"])
+if spotifyParse:
+    temp[0] = temp[0] + temp[3]
+    temp[4] = temp[4] + temp[7]
+    temp[0] = temp[0].fillna(temp[4])
+    parsed.loc[parsed["Title"].str.match(featRegex), "Title"] = temp[0]
+parsed["FeaturedArtist"] = temp["featArtist"]
 
 # trim the ISO Date to only be YYYY-MM-DD.
 col = parsed["DateAdded"]
@@ -159,4 +169,7 @@ col = col.apply(trimDates)
 parsed["DateAdded"] = col
 
 # write to csv preserving non-English characters correctly
-parsed.to_csv("data/songCSVs/parsed.csv", encoding="utf-8-sig")
+if spotifyParse:
+    parsed.to_csv("data/songCSVs/parsedSpotify.csv", encoding="utf-8-sig")
+else:
+    parsed.to_csv("data/songCSVs/parsed.csv", encoding="utf-8-sig")

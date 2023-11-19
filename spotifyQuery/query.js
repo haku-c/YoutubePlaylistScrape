@@ -2,7 +2,8 @@ require('dotenv').config();
 const axios = require('axios');
 const qs = require('qs');
 const fs = require('fs');
-const Fuse = require('fuse.js')
+const Fuse = require('fuse.js');
+const tqdm = require('tqdm');
 const csvParser = require("csv-parser");
 
 const clientId = process.env.SPOTIFY_CLIENT_ID;
@@ -29,7 +30,7 @@ async function getToken() {
   }
 }
 
-async function getSongIds(q, qArtist, qTitle) {
+async function getSongIds(q, qArtist, qTitle, qFeatured) {
   const token = await getToken()
   const response = await axios({
     method: 'get',
@@ -54,20 +55,18 @@ async function getSongIds(q, qArtist, qTitle) {
       keys: [{ name: 'title' }, { name: 'artist' }],
       includeScore: true,
       includeMatches: true,
-      threshold: 0.4,
       shouldSort: true,
     })
-    searchTerm = qTitle + " " + qArtist
-    const fuseRes = fuse.search(searchTerm)
-    console.log(fuseRes[0])
-    return fuseRes[0]
+    const fuseRes = fuse.search({ $or: [{ title: qTitle }, { artist: " " + qArtist + " " + qFeatured }] })
+    // console.log(fuseRes)
+    return fuseRes
   })
   return response
 }
 
 incorrect = []
-correctSongIds = []
-
+matchedSongs = []
+scores = []
 var result = [];
 fs.createReadStream("./queries.csv")
   .pipe(csvParser())
@@ -75,11 +74,51 @@ fs.createReadStream("./queries.csv")
     result.push(data);
   })
   .on("end", async () => {
-    for (let i = 0; i < 2; i++) {
+    // for (let i of tqdm([...Array(result.length).keys()])) {
+    for (let i of tqdm([...Array(50).keys()])) {
       data = result[i]
-      const res = await getSongIds(data.url, data.Artist, data.Title)
-      console.log(res)
+      const res = await getSongIds(data.url, data.Artist, data.Title, data.FeaturedArtist)
+      if (res.length == 0) {
+        incorrect.push(i + ": " + data.Artist + ", " + data.Title)
+      } else {
+        matchedSongs.push({ query: data.Artist + ", " + data.Title, response: res[0] })
+      }
     }
+    for (let inc of incorrect) {
+      console.log(inc)
+    }
+    console.log("number incorrect: " + incorrect.length)
+    console.log("-------")
+    notExact = []
+    for (let res of matchedSongs) {
+      if (res.response.score > 0.5) {
+        notExact.push({ query: res.query, title: res.response.item.title, artist: res.response.item.artist, score: res.response.score })
+      }
+    }
+    console.log("number not exactly matching: " + notExact.length)
+    const csvString = [
+      [
+        "Query",
+        "Title",
+        "Artist",
+        "Score"
+      ],
+      ...notExact.map(item => [
+        item.query,
+        item.title,
+        item.artist,
+        item.score
+      ])
+    ]
+      .map(entry => entry.join(","))
+      .join("\n")
+
+    fs.writeFile("./notExact.csv", csvString, function (err) {
+      if (err) {
+        return console.log(err);
+      }
+      console.log("The file was saved!");
+    });
   });
 
 
