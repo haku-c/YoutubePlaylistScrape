@@ -93,7 +93,7 @@ songsToParse.loc[
 
 songsToParse.loc[songsToParse["Artist"] == "【EDM】Eastside", "Artist"] = "Eastside"
 swap(songsToParse, "Approaching Nirvana & BigGiantCircles")
-swap(songsToParse, "Sara Kays")
+swap(songsToParse, "Sara Kays ")
 swap(songsToParse, "Sista Prod (feat. Powfu, Alec Benjamin & Rxseboy)")
 
 # some songs use an alternate hyphen

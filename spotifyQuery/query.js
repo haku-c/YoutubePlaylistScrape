@@ -23,8 +23,8 @@ async function getToken() {
         'Content-Type': 'application/x-www-form-urlencoded'
       }
     })
+    // console.log(response.data.access_token);
     return response.data.access_token;
-    //console.log(response.data.access_token);   
   } catch (error) {
     console.log(error);
   }
@@ -40,6 +40,7 @@ async function getSongIds(q, qArtist, qTitle, qFeatured) {
     }
   }).then((result) => {
     spotifyResponse = result.data
+    // console.log(spotifyResponse.tracks)
     res = []
     for (let i = 0; i < spotifyResponse.tracks.items.length; i++) {
       let songId = spotifyResponse.tracks.items[i].id
@@ -51,13 +52,18 @@ async function getSongIds(q, qArtist, qTitle, qFeatured) {
       }
       res.push({ title: songName, artist: artists, id: songId })
     }
+    if (qFeatured != "") {
+      artistStr = qArtist + " " + qFeatured
+    } else {
+      artistStr = qArtist
+    }
     const fuse = new Fuse(res, {
       keys: [{ name: 'title' }, { name: 'artist' }],
       includeScore: true,
       includeMatches: true,
       shouldSort: true,
     })
-    const fuseRes = fuse.search({ $or: [{ title: qTitle }, { artist: " " + qArtist + " " + qFeatured }] })
+    const fuseRes = fuse.search({ $and: [{ title: qTitle }, { artist: artistStr }] })
     // console.log(fuseRes)
     return fuseRes
   })
@@ -75,24 +81,26 @@ fs.createReadStream("./queries.csv")
   })
   .on("end", async () => {
     // for (let i of tqdm([...Array(result.length).keys()])) {
-    for (let i of tqdm([...Array(50).keys()])) {
-      data = result[i]
-      const res = await getSongIds(data.url, data.Artist, data.Title, data.FeaturedArtist)
-      if (res.length == 0) {
-        incorrect.push(i + ": " + data.Artist + ", " + data.Title)
-      } else {
-        matchedSongs.push({ query: data.Artist + ", " + data.Title, response: res[0] })
-      }
+    // for (let i of tqdm([...Array(10).keys()])) {
+    let i = 9
+    data = result[i]
+    const res = await getSongIds(data.url, data.Artist, data.Title, data.FeaturedArtist)
+    if (res.length == 0) {
+      incorrect.push(i + ": " + data.Artist + ", " + data.Title)
+    } else {
+      matchedSongs.push({ query: data.Artist + ", " + data.Title, response: res[0] })
     }
+    // }
     for (let inc of incorrect) {
       console.log(inc)
     }
     console.log("number incorrect: " + incorrect.length)
     console.log("-------")
     notExact = []
+
     for (let res of matchedSongs) {
       if (res.response.score > 0.5) {
-        notExact.push({ query: res.query, title: res.response.item.title, artist: res.response.item.artist, score: res.response.score })
+        notExact.push({ query: res.query, title: res.response.item.title, artist: res.response.item.artist, score: res.response.item.score })
       }
     }
     console.log("number not exactly matching: " + notExact.length)
@@ -114,6 +122,32 @@ fs.createReadStream("./queries.csv")
       .join("\n")
 
     fs.writeFile("./notExact.csv", csvString, function (err) {
+      if (err) {
+        return console.log(err);
+      }
+      console.log("The file was saved!");
+    });
+
+    const songsString = [
+      [
+        "Query",
+        "Title",
+        "Artist",
+        "Score",
+        "Id"
+      ],
+      ...matchedSongs.map(item => [
+        item.query,
+        item.response.item.title,
+        item.response.item.artist,
+        item.response.score,
+        item.response.item.id
+      ])
+    ]
+      .map(entry => entry.join(","))
+      .join("\n")
+
+    fs.writeFile("./songData.csv", songsString, function (err) {
       if (err) {
         return console.log(err);
       }
