@@ -10,11 +10,11 @@ data["RemixArtist"] = data["RemixArtist"].fillna("")
 data["RemixArtist"] = data["RemixArtist"].apply(lambda x: x.strip())
 data["Artist"] = data["Artist"].apply(lambda x: x.strip())
 queries = (
-    "q=track: "
+    "q=track:"
     + data["Title"]
-    + " artist: "
+    + ' artist: "'
     + data["Artist"]
-    + " "
+    + '" '
     + data["FeaturedArtist"]
 )
 queries = queries.apply(lambda x: x.strip())

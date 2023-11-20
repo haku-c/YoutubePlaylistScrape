@@ -50,7 +50,7 @@ async function getSongIds(q, qArtist, qTitle, qFeatured) {
       for (let j = 0; j < artistData.length; j++) {
         artists = artists + " " + (artistData[j].name)
       }
-      res.push({ title: songName, artist: artists, id: songId })
+      res.push({ title: songName, artist: artists.trim(), id: songId })
     }
     if (qFeatured != "") {
       artistStr = qArtist + " " + qFeatured
@@ -72,7 +72,8 @@ async function getSongIds(q, qArtist, qTitle, qFeatured) {
 
 incorrect = []
 matchedSongs = []
-scores = []
+notExact = []
+
 var result = [];
 fs.createReadStream("./queries.csv")
   .pipe(csvParser())
@@ -80,48 +81,46 @@ fs.createReadStream("./queries.csv")
     result.push(data);
   })
   .on("end", async () => {
-    // for (let i of tqdm([...Array(result.length).keys()])) {
-    // for (let i of tqdm([...Array(10).keys()])) {
-    let i = 9
-    data = result[i]
-    const res = await getSongIds(data.url, data.Artist, data.Title, data.FeaturedArtist)
-    if (res.length == 0) {
-      incorrect.push(i + ": " + data.Artist + ", " + data.Title)
-    } else {
-      matchedSongs.push({ query: data.Artist + ", " + data.Title, response: res[0] })
+    for (let i of tqdm([...Array(result.length).keys()])) {
+      // for (let i of tqdm([...Array(50).keys()])) {
+      // let i = 38
+      data = result[i]
+      const res = await getSongIds(data.url, data.Artist, data.Title, data.FeaturedArtist)
+      if (res.length == 0) {
+        incorrect.push(i + ": " + data.Artist + "|" + data.Title)
+      } else if (res[0].score > 0.05) {
+        notExact.push({ index: i, query: data.Artist + "|" + data.Title, response: res[0] })
+      } else {
+        matchedSongs.push({ index: i, query: data.Artist + "|" + data.Title, response: res[0] })
+      }
     }
-    // }
     for (let inc of incorrect) {
       console.log(inc)
     }
     console.log("number incorrect: " + incorrect.length)
     console.log("-------")
-    notExact = []
-
-    for (let res of matchedSongs) {
-      if (res.response.score > 0.5) {
-        notExact.push({ query: res.query, title: res.response.item.title, artist: res.response.item.artist, score: res.response.item.score })
-      }
-    }
     console.log("number not exactly matching: " + notExact.length)
     const csvString = [
       [
+        "Index",
         "Query",
         "Title",
         "Artist",
         "Score"
       ],
-      ...notExact.map(item => [
-        item.query,
-        item.title,
-        item.artist,
-        item.score
-      ])
+      ...notExact.map(item =>
+        [
+          item.index,
+          item.query,
+          item.response.item.title,
+          item.response.item.artist,
+          item.response.score,
+        ])
     ]
-      .map(entry => entry.join(","))
+      .map(entry => entry.join(";"))
       .join("\n")
 
-    fs.writeFile("./notExact.csv", csvString, function (err) {
+    fs.writeFile("./csvs/notExact4.csv", csvString, function (err) {
       if (err) {
         return console.log(err);
       }
@@ -130,24 +129,27 @@ fs.createReadStream("./queries.csv")
 
     const songsString = [
       [
+        "Index",
         "Query",
         "Title",
         "Artist",
         "Score",
         "Id"
       ],
-      ...matchedSongs.map(item => [
-        item.query,
-        item.response.item.title,
-        item.response.item.artist,
-        item.response.score,
-        item.response.item.id
-      ])
+      ...matchedSongs.map(item =>
+        [
+          item.index,
+          item.query,
+          item.response.item.title,
+          item.response.item.artist,
+          item.response.score,
+          item.response.item.id
+        ])
     ]
-      .map(entry => entry.join(","))
+      .map(entry => entry.join(";"))
       .join("\n")
 
-    fs.writeFile("./songData.csv", songsString, function (err) {
+    fs.writeFile("./csvs/exactMatches4.csv", songsString, function (err) {
       if (err) {
         return console.log(err);
       }
