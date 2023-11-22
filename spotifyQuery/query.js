@@ -30,7 +30,7 @@ async function getToken() {
   }
 }
 
-async function getSongIds(q, qArtist, qTitle, qFeatured) {
+async function getSongIds(q, qArtist, qTitle, qFeatured, qRemix) {
   const token = await getToken()
   const response = await axios({
     method: 'get',
@@ -57,6 +57,9 @@ async function getSongIds(q, qArtist, qTitle, qFeatured) {
     } else {
       artistStr = qArtist
     }
+    if (qRemix != "") {
+      artistStr = qArtist + " " + qRemix
+    }
     const fuse = new Fuse(res, {
       keys: [{ name: 'title' }, { name: 'artist' }],
       includeScore: true,
@@ -70,91 +73,67 @@ async function getSongIds(q, qArtist, qTitle, qFeatured) {
   return response
 }
 
-incorrect = []
-matchedSongs = []
-notExact = []
 
-var result = [];
-fs.createReadStream("./queries.csv")
-  .pipe(csvParser())
-  .on("data", (data) => {
-    result.push(data);
-  })
-  .on("end", async () => {
-    for (let i of tqdm([...Array(result.length).keys()])) {
-      // for (let i of tqdm([...Array(50).keys()])) {
-      // let i = 38
-      data = result[i]
-      const res = await getSongIds(data.url, data.Artist, data.Title, data.FeaturedArtist)
-      if (res.length == 0) {
-        incorrect.push(i + ": " + data.Artist + "|" + data.Title)
-      } else if (res[0].score > 0.05) {
-        notExact.push({ index: i, query: data.Artist + "|" + data.Title, response: res[0] })
+function querySpotify(queryPath, outputMatches, write) {
+  var result = [];
+  var incorrect = []
+  var matchedSongs = []
+  fs.createReadStream(queryPath)
+    .pipe(csvParser())
+    .on("data", (data) => {
+      result.push(data);
+    })
+    .on("end", async () => {
+      for (let i of tqdm([...Array(result.length).keys()])) {
+        data = result[i]
+        const res = await getSongIds(data.url, data.Artist, data.Title, data.FeaturedArtist, data.RemixArtist)
+        if (res.length == 0) {
+          incorrect.push(i + ": " + data.Artist + "|" + data.Title)
+        } else {
+          matchedSongs.push({ index: data.Index, query: data.Artist + "|" + data.Title, response: res[0] })
+        }
+      }
+      for (let inc of incorrect) {
+        console.log(inc)
+      }
+      console.log("number incorrect: " + incorrect.length)
+      console.log("-------")
+      const matchedSongsString = [
+        [
+          "Index",
+          "Query",
+          "Title",
+          "Artist",
+          "Score",
+          "Id"
+        ],
+        ...matchedSongs.map(item =>
+          [
+            item.index,
+            item.query,
+            item.response.item.title,
+            item.response.item.artist,
+            item.response.score,
+            item.response.item.id
+          ])
+      ]
+        .map(entry => entry.join(";"))
+        .join("\n")
+
+      if (write) {
+        fs.writeFile(outputMatches, matchedSongsString, function (err) {
+          if (err) {
+            return console.log(err);
+          }
+          console.log("The file was saved!");
+        });
       } else {
-        matchedSongs.push({ index: i, query: data.Artist + "|" + data.Title, response: res[0] })
+        console.log("matches: ")
+        console.log(matchedSongsString)
       }
-    }
-    for (let inc of incorrect) {
-      console.log(inc)
-    }
-    console.log("number incorrect: " + incorrect.length)
-    console.log("-------")
-    console.log("number not exactly matching: " + notExact.length)
-    const csvString = [
-      [
-        "Index",
-        "Query",
-        "Title",
-        "Artist",
-        "Score"
-      ],
-      ...notExact.map(item =>
-        [
-          item.index,
-          item.query,
-          item.response.item.title,
-          item.response.item.artist,
-          item.response.score,
-        ])
-    ]
-      .map(entry => entry.join(";"))
-      .join("\n")
-
-    fs.writeFile("./csvs/notExact4.csv", csvString, function (err) {
-      if (err) {
-        return console.log(err);
-      }
-      console.log("The file was saved!");
     });
+}
 
-    const songsString = [
-      [
-        "Index",
-        "Query",
-        "Title",
-        "Artist",
-        "Score",
-        "Id"
-      ],
-      ...matchedSongs.map(item =>
-        [
-          item.index,
-          item.query,
-          item.response.item.title,
-          item.response.item.artist,
-          item.response.score,
-          item.response.item.id
-        ])
-    ]
-      .map(entry => entry.join(";"))
-      .join("\n")
-
-    fs.writeFile("./csvs/exactMatches4.csv", songsString, function (err) {
-      if (err) {
-        return console.log(err);
-      }
-      console.log("The file was saved!");
-    });
-  });
+querySpotify("./queriesNone.csv", "./csvs/matches.csv", true)
 
 
