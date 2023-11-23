@@ -1,6 +1,5 @@
 import pandas as pd
 import urllib.parse
-from config import SPOTIFY_KEY
 
 data = pd.read_csv("data/songCSVS/parsedSpotify.csv")
 dataNoMatches = pd.read_csv("data/songCSVS/parsedNoMatches.csv")
